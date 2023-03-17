@@ -1,0 +1,72 @@
+defaultTasks 'clean', 'test', 'aggregate'
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+buildscript {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+    dependencies {
+        classpath "net.serenity-bdd:serenity-gradle-plugin:3.3.2"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.7.0"
+
+    }
+}
+
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+apply plugin: "net.serenity-bdd.serenity-gradle-plugin"
+apply plugin: 'kotlin'
+
+sourceCompatibility = 11
+targetCompatibility = 11
+
+ext {
+    slf4jVersion = '1.7.7'
+    serenityCoreVersion = '3.3.2'
+    junitVersion = '4.13.1'
+    assertJVersion = '3.23.1'
+    logbackVersion = '1.2.10'
+}
+
+dependencies {
+    implementation "ch.qos.logback:logback-classic:${logbackVersion}"
+
+    testImplementation "net.serenity-bdd:serenity-core:${serenityCoreVersion}",
+            "net.serenity-bdd:serenity-cucumber:${serenityCoreVersion}",
+            "net.serenity-bdd:serenity-screenplay:${serenityCoreVersion}",
+            "net.serenity-bdd:serenity-ensure:${serenityCoreVersion}",
+            "junit:junit:${junitVersion}",
+            "org.assertj:assertj-core:${assertJVersion}"
+    implementation "net.serenity-bdd:serenity-screenplay-rest:${serenityCoreVersion}"
+
+}
+
+test {
+    systemProperties System.getProperties()
+    maxParallelForks = 8
+    gradle.startParameter.continueOnFailure = true
+
+    test.finalizedBy(aggregate)
+}
+
+def tags = (findProperty('tags') == null) ? 'not @Ignore' : findProperty('tags') + ' and not @Ignore'
+
+task cucumber() {
+
+    dependsOn assemble, testClasses
+    doLast {
+        javaexec {
+            main = "net.serenitybdd.cucumber.cli.Main"
+            classpath = configurations.cucumberRuntime + sourceSets.main.output + sourceSets.test.output
+            args = ['--plugin', 'pretty', '--glue', 'screenplay.api.automation', 'src/test/resources/features/', '--tags', "${tags}"]
+        }
+    }
+}
